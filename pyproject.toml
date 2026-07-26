@@ -11,4 +11,3 @@ dependencies = [
 readme = "README.md"
 
 [project.scripts]
-weatherapi = "weatherapi:main"
