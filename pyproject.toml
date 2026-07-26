@@ -9,5 +9,3 @@ dependencies = [
     "pydantic-settings>=2.14.2",
 ]
 readme = "README.md"
-
-[project.scripts]
