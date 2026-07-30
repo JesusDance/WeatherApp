@@ -40,7 +40,7 @@ class WeatherClient:
             response.raise_for_status()
 
             data = response.json()
-            temp, wind = data["main"].get("temp", 0), data["wind"].get("speed", 0)
+            temp, wind = data["main"].get("temp", "Unknown"), data["wind"].get("speed", "Unknown")
             return temp, wind
 
         except httpx.ConnectError:
@@ -80,40 +80,22 @@ class WeatherClient:
             response.raise_for_status()
             data = response.json()
 
-            result = [
-                {
-                    "temp_min": data["list"][0]["main"].get("temp_min"),
-                    "temp_max": data["list"][0]["main"].get("temp_max"),
-                    "feels_like": data["list"][0]["main"].get("feels_like"),
-                    "dt_txt": data["list"][0]["dt_txt"],
-                },
-                    {
-                    "temp_min": data["list"][8]["main"].get("temp_min"),
-                    "temp_max": data["list"][8]["main"].get("temp_max"),
-                    "feels_like": data["list"][8]["main"].get("feels_like"),
-                    "dt_txt": data["list"][8]["dt_txt"],
-                },
-                {
-                    "temp_min": data["list"][16]["main"].get("temp_min"),
-                    "temp_max": data["list"][16]["main"].get("temp_max"),
-                    "feels_like": data["list"][16]["main"].get("feels_like"),
-                    "dt_txt": data["list"][16]["dt_txt"],
-                },
-                {
-                    "temp_min": data["list"][24]["main"].get("temp_min"),
-                    "temp_max": data["list"][24]["main"].get("temp_max"),
-                    "feels_like": data["list"][24]["main"].get("feels_like"),
-                    "dt_txt": data["list"][24]["dt_txt"],
-                },
-                {
-                    "temp_min": data["list"][32]["main"].get("temp_min"),
-                    "temp_max": data["list"][32]["main"].get("temp_max"),
-                    "feels_like": data["list"][32]["main"].get("feels_like"),
-                    "dt_txt": data["list"][32]["dt_txt"],
-                },
+            main_result = []
+            end = len(data["list"])
+            for _ in data["list"]:
+                start = settings.START
+                for _ in range(start, end, settings.STEP_EVERY_DAY):
+                    weather = {
+                        "temp_min": data["list"][start]["main"].get("temp_min"),
+                        "temp_max": data["list"][start]["main"].get("temp_max"),
+                        "feels_like": data["list"][start]["main"].get("feels_like"),
+                        "dt_txt": data["list"][start]["dt_txt"],
+                    }
+                    main_result.append(weather)
+                    start += settings.STEP_EVERY_DAY
+                break
 
-            ]
-            return result
+            return main_result
 
 
         except httpx.ConnectError:
