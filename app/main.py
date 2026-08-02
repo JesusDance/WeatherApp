@@ -1,8 +1,8 @@
 from collections.abc import AsyncGenerator
-
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from typing import Any
+
+from fastapi import FastAPI
 from httpx import AsyncClient
 from redis.asyncio import Redis
 
@@ -16,7 +16,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[Any, None]:
         app.state.httpx_client = AsyncClient(http2=True)
         app.state.redis_client = Redis.from_url(
             url=settings.REDIS_URL,
-            auto_close_connection_pool=True
+            decode_responses=True,
         )
         yield
     finally:
