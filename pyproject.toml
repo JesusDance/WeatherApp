@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
+    "black>=26.5.1",
     "fastapi[standard]>=0.140.0",
     "httpx[http2]>=0.28.1",
     "pydantic-settings>=2.14.2",
