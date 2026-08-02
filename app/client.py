@@ -3,6 +3,8 @@ from fastapi import status, HTTPException, Request
 from httpx import AsyncClient
 
 from app.config import settings
+from app.forecast_aggregation import get_min_value, get_max_value, \
+    get_average_feels_like_value
 from app.logger import logger
 
 
@@ -12,17 +14,16 @@ def get_client(request: Request) -> AsyncClient:
 
 class WeatherClient:
     def __init__(
-            self,
-            client: AsyncClient,
-            url: str = settings.URL,
-            forecast_url: str = settings.FORECAST_URL,
-            api_key: str = settings.API_KEY
+        self,
+        client: AsyncClient,
+        url: str = settings.URL,
+        forecast_url: str = settings.FORECAST_URL,
+        api_key: str = settings.API_KEY,
     ):
         self.client = client
         self.url = url
         self.forecast_url = forecast_url
         self.api_key = api_key
-
 
     async def fetch_weather(self, city: str) -> tuple[float, float]:
         logger.info("Fetching temp from external API", extra={"city": city})
@@ -40,12 +41,16 @@ class WeatherClient:
             response.raise_for_status()
 
             data = response.json()
-            temp, wind = data["main"].get("temp", "Unknown"), data["wind"].get("speed", "Unknown")
+            temp, wind = data["main"].get("temp", "Unknown"), data["wind"].get(
+                "speed", "Unknown"
+            )
             return temp, wind
 
         except httpx.ConnectError:
             logger.warning("Cannot connect to openweather")
-            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Cannot connect to openweather")
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, "Cannot connect to openweather"
+            )
 
         except httpx.TimeoutException:
             logger.warning("External APi timeout")
@@ -57,12 +62,17 @@ class WeatherClient:
                 logger.warning("City not found")
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "City not found")
             if response_status == 401:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid OpenWeather API key")
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED, "Invalid OpenWeather API key"
+                )
             if response_status == 429:
-                raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many requests")
+                raise HTTPException(
+                    status.HTTP_429_TOO_MANY_REQUESTS, "Too many requests"
+                )
 
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Weather service doesn't response")
-
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY, "Weather service doesn't response"
+            )
 
     async def fetch_weather_for_five_days(self, city: str) -> list[dict]:
         logger.info("Fetch weather forecast", extra={"city": city})
@@ -80,27 +90,48 @@ class WeatherClient:
             response.raise_for_status()
             data = response.json()
 
+            temp_min_all = []
+            temp_max_all = []
+            temp_feels_like = []
+            dt_txt_list = []
+            end_average = len(data["list"])
+            start = settings.START
+            for _ in range(start, end_average):
+                min_value = data["list"][start]["main"].get("temp_min")
+                max_value = data["list"][start]["main"].get("temp_max")
+                feels_like = data["list"][start]["main"].get("feels_like")
+                dt_txt = data["list"][start]["dt_txt"]
+                temp_min_all.append(min_value)
+                temp_max_all.append(max_value)
+                temp_feels_like.append(feels_like)
+                dt_txt_list.append(dt_txt)
+                start += 1
+
+            average_min_temp = get_min_value(temp_min_all)
+            average_max_temp = get_max_value(temp_max_all)
+            average_feels_like = get_average_feels_like_value(temp_feels_like)
+            average_dt_txt = get_min_value(dt_txt_list)
+
             main_result = []
-            end = len(data["list"])
-            for _ in data["list"]:
-                start = settings.START
-                for _ in range(start, end, settings.STEP_EVERY_DAY):
-                    weather = {
-                        "temp_min": data["list"][start]["main"].get("temp_min"),
-                        "temp_max": data["list"][start]["main"].get("temp_max"),
-                        "feels_like": data["list"][start]["main"].get("feels_like"),
-                        "dt_txt": data["list"][start]["dt_txt"],
-                    }
-                    main_result.append(weather)
-                    start += settings.STEP_EVERY_DAY
-                break
+            stop = settings.STOP
+            start = settings.START
+            for _ in range(stop):
+                weather = {
+                    "temp_min": average_min_temp[start],
+                    "temp_max": average_max_temp[start],
+                    "feels_like": average_feels_like[start],
+                    "dt_txt": average_dt_txt[start],
+                }
+                main_result.append(weather)
+                start += 1
 
             return main_result
 
-
         except httpx.ConnectError:
             logger.warning("Cannot connect to openweather")
-            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Cannot connect to openweather")
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, "Cannot connect to openweather"
+            )
 
         except httpx.TimeoutException:
             logger.warning("External APi timeout")
@@ -112,8 +143,14 @@ class WeatherClient:
                 logger.warning("City not found")
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "City not found")
             if response_status == 401:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid OpenWeather API key")
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED, "Invalid OpenWeather API key"
+                )
             if response_status == 429:
-                raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many requests")
+                raise HTTPException(
+                    status.HTTP_429_TOO_MANY_REQUESTS, "Too many requests"
+                )
 
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Weather service doesn't response")
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY, "Weather service doesn't response"
+            )

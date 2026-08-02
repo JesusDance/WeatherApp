@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     CACHE_TTL_SECONDS: int = 600
 
     START: int = 0
+    STOP: int = 5
     STEP_EVERY_DAY: int = 8
 
 settings = Settings()
