@@ -1,10 +1,9 @@
 from typing import Any
 
-from app.config import settings
 
-START = settings.START
-STOP = settings.STOP
-END = settings.STEP_EVERY_DAY
+START = 0
+STOP = 5
+END = 8
 
 
 def get_min_value(
