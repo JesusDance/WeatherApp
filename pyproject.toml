@@ -4,10 +4,16 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
+    "asgi-lifespan>=2.1.0",
     "black>=26.5.1",
     "fastapi[standard]>=0.140.0",
+    "httpx-mock>=0.1.1",
     "httpx[http2]>=0.28.1",
     "pydantic-settings>=2.14.2",
+    "pytest>=9.1.1",
+    "pytest-aio>=2.1.7",
+    "pytest-asyncio>=1.4.0",
+    "pytest-httpx>=0.36.2",
     "redis>=8.0.1",
 ]
 readme = "README.md"
