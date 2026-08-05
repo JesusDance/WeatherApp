@@ -1,4 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from functools import lru_cache
+
+from starlette.requests import Request
 
 
 class Settings(BaseSettings):
@@ -17,4 +20,17 @@ class Settings(BaseSettings):
     STOP: int = 5
     STEP_EVERY_DAY: int = 8
 
-settings = Settings()
+
+def get_test_settings() -> Settings:
+    return Settings(API_KEY="test_key")
+
+
+#Ініціалізуємо об'єкт налаштувань в лайфспенє
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+print(get_settings.cache_info())
+#Отримуємо створений об'єкт налаштувань з лайфспена
+def get_settings_from_lifespan(request: Request) -> Settings:
+    return request.app.state.settings

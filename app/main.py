@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from redis.asyncio import Redis
 
-from app.config import settings
+from app.config import get_settings
 from app.routers.weather import router as weather_router
 
 
@@ -14,8 +14,9 @@ from app.routers.weather import router as weather_router
 async def lifespan(_: FastAPI) -> AsyncGenerator[Any, None]:
     try:
         app.state.httpx_client = AsyncClient(http2=True)
+        app.state.settings = get_settings()
         app.state.redis_client = Redis.from_url(
-            url=settings.REDIS_URL,
+            url=app.state.settings.REDIS_URL,
             decode_responses=True,
         )
         yield
