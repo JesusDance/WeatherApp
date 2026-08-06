@@ -2,11 +2,11 @@ import json
 from typing import Any
 
 from fastapi import HTTPException, status
-from redis.asyncio import Redis
 from redis import RedisError
+from redis.asyncio import Redis
 from starlette.requests import Request
 
-from app.config import settings
+from app.config import get_settings_from_lifespan, Settings
 from app.logger import logger
 
 
@@ -15,18 +15,13 @@ def get_redis_client(r: Request) -> Redis:
 
 
 class RedisClient:
-    def __init__(
-            self,
-            redis_client: Redis,
-            cache_ttl_seconds: int = settings.CACHE_TTL_SECONDS
-    ):
+    def __init__(self, redis_client: Redis):
         self.redis_client = redis_client
-        self.cache_ttl_seconds = cache_ttl_seconds
 
 
     async def get_cache(self, key: str) -> dict[str, Any] | None:
         try:
-            value = await self.redis_client.get(name=key)
+            value = await self.redis_client.get(key)
             if value is None:  # Якщо значення ще не існує, щоб json не конвертував None
                 return None
             return json.loads(value)
@@ -35,10 +30,10 @@ class RedisClient:
             return None
 
 
-    async def set_cache(self, key: str, value: dict) -> None:
+    async def set_cache(self, key: str, value: dict, settings: Settings) -> None:
         try:
             await self.redis_client.set(
-                name=key, value=json.dumps(value), ex=self.cache_ttl_seconds
+                name=key, value=json.dumps(value), ex=settings.CACHE_TTL_SECONDS
             )
         except RedisError:
             logger.warning("Failed to write weather cache", extra={"key": key})
@@ -56,8 +51,7 @@ class RedisClient:
     async def rate_limit_by_ip(
             self,
             r: Request,
-            limit: int = settings.REQUESTS_LIMIT,
-            seconds: int = settings.CACHE_EXPIRE_SECONDS,
+            settings: Settings,
     ):
         credentials = HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS, "Too many requests"
@@ -67,6 +61,6 @@ class RedisClient:
         key = f"request:{ip}"
         requests = await self.redis_client.incr(key)
         if requests == 1:
-            await self.redis_client.expire(name=key, time=seconds)
-        if requests > limit:
+            await self.redis_client.expire(name=key, time=settings.CACHE_EXPIRE_SECONDS)
+        if requests > settings.REQUESTS_LIMIT:
             raise credentials
