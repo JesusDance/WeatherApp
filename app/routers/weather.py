@@ -8,7 +8,7 @@ from starlette.requests import Request
 from app.cache.keys import weather_key, weather_forecast
 from app.cache.redis_client import RedisClient
 from app.client import WeatherClient
-from app.dependencies import CLIENT_DEP, REDIS_DEP
+from app.dependencies import CLIENT_DEP, REDIS_DEP, SettingsDep
 from app.schemas import City, ReadWeatherData, ReadWeatherFiveDays, ReadDay
 
 router = APIRouter(prefix="/weather", tags=["weather"])
@@ -22,21 +22,22 @@ async def get_weather(
         redis: REDIS_DEP,
         request: Request,
         city: CITY_QUERY,
+        settings: SettingsDep,
 ) -> ReadWeatherData:
     redis_client = RedisClient(redis)
     cache = await redis_client.get_cache(weather_key(city.name))
     if cache is not None:
         return ReadWeatherData.model_validate(cache)
-    await redis_client.rate_limit_by_ip(request)
+    await redis_client.rate_limit_by_ip(request, settings)
 
     weather_client = WeatherClient(client)
-    temp, wind = await weather_client.fetch_weather(city.name)
+    temp, wind = await weather_client.fetch_weather(city.name, settings)
     result = {
         "city": city.name,
         "temp": temp,
         "wind": wind,
     }
-    await redis_client.set_cache(weather_key(city.name), result)
+    await redis_client.set_cache(weather_key(city.name), result, settings)
     return ReadWeatherData.model_validate(result)
 
 
@@ -46,19 +47,20 @@ async def get_weather_forecast(
         redis: REDIS_DEP,
         request: Request,
         city: CITY_QUERY,
+        settings: SettingsDep,
 ) -> ReadWeatherFiveDays:
     redis_client = RedisClient(redis)
     cache = await redis_client.get_cache(weather_forecast(city.name))
     if cache is not None:
         return ReadWeatherFiveDays.model_validate(cache)
-    await redis_client.rate_limit_by_ip(request)
+    await redis_client.rate_limit_by_ip(request, settings)
 
     weather_client = WeatherClient(client)
-    result = await weather_client.fetch_weather_for_five_days(city.name)
+    result = await weather_client.fetch_weather_for_five_days(city.name, settings)
     weather_for_read = [ReadDay.model_validate(day).model_dump(mode="json") for day in result]
     result_for_read = {
         "city": city.name,
         "days": weather_for_read,
     }
-    await redis_client.set_cache(weather_forecast(city.name), result_for_read)
+    await redis_client.set_cache(weather_forecast(city.name), result_for_read, settings)
     return ReadWeatherFiveDays.model_validate(result_for_read)
